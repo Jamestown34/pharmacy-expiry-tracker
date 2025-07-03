@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "pharmacy_expiry_tracker_supabase_auth.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "pharmacy_expiry_tracker_supabase_auth.py"
+    }
+  ]
+}
