@@ -1,3 +1,41 @@
+
+import streamlit as st
+
+# Inject custom CSS with st.markdown
+st.markdown(
+    """
+    <style>
+    /* Change main app background to a nice blue gradient */
+    .stApp {
+        background: linear-gradient(90deg, #001288, #0257a6, #93cbff);
+        min-height: 100vh;
+        color: white;
+    }
+
+    /* Style headers and text color */
+    .css-1v3fvcr, .css-1d391kg, .css-1emrehy, .css-18e3th9 {
+        color: white;
+    }
+
+    /* Style buttons */
+    button[kind="primary"] {
+        background-color: #001288 !important;
+        color: white !important;
+    }
+
+    /* Input boxes background */
+    .stTextInput>div>div>input {
+        background-color: #e6f0ff;
+        color: black;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
+
 ```python
 import streamlit as st
 import pandas as pd
