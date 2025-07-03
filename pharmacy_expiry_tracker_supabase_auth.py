@@ -1,7 +1,12 @@
-
 import streamlit as st
+import pandas as pd
+from supabase import create_client, Client
+from datetime import datetime, timedelta
+from dateutil import parser
+import io
+import os
 
-# Inject custom CSS with st.markdown
+# Inject custom CSS with st.markdown for styling
 st.markdown(
     """
     <style>
@@ -32,18 +37,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-
-
-
-```python
-import streamlit as st
-import pandas as pd
-from supabase import create_client, Client
-from datetime import datetime, timedelta
-from dateutil import parser
-import io
-import os
 
 # Initialize Supabase client using environment variables
 supabase_url = os.getenv("SUPABASE_URL")
@@ -206,4 +199,3 @@ else:
 # Footer
 st.write("Set up WhatsApp alerts for near-expiry drugs at: [Twilio Setup](https://www.twilio.com)")
 st.write("Data encrypted for NDPR compliance")
-```
