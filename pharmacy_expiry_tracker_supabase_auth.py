@@ -78,48 +78,52 @@ st.markdown('<h1 class="main-header">💊 Naija Pharmacy Expiry Tracker</h1>', u
 
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
-    option = st.radio("Choose an option:", ["Login", "Sign Up"])
+    auth_choice = st.radio("Choose an option", ["Login", "Sign Up"])
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
-    if option == "Sign Up":
+    if auth_choice == "Sign Up":
         if st.button("Sign Up"):
             try:
-                response = supabase.auth.sign_up({"email": email, "password": password})
-                if response.user:
-                    st.success("Account created! Check your email to confirm.")
+                auth_response = supabase.auth.sign_up({"email": email, "password": password})
+                user = auth_response['user'] if isinstance(auth_response, dict) else auth_response.user
+                if user:
+                    st.success("Sign-up successful! Please check your email for confirmation.")
                 else:
-                    st.error(f"Sign-up failed: {response.json().get('error_description', response.json().get('msg', 'Unknown error'))}")
+                    st.error("Sign-up failed: Invalid response from server.")
             except Exception as e:
-                st.error(f"Sign-up failed: {e}")
+                st.error(f"Sign-up failed: {str(e)}")
 
-    if option == "Login":
+    if auth_choice == "Login":
         if st.button("Login"):
             try:
                 auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                if hasattr(auth_response, 'user') and hasattr(auth_response, 'session'):
-                    st.session_state.user = auth_response.user
-                    access_token = auth_response.session.access_token
+                if isinstance(auth_response, dict):
+                    user = auth_response.get('user')
+                    session = auth_response.get('session')
+                else:
+                    user = auth_response.user
+                    session = auth_response.session
+                if user and session:
+                    st.session_state.user = user
+                    access_token = session['access_token'] if isinstance(session, dict) else session.access_token
                     st.session_state.supabase = create_client(
                         st.secrets["SUPABASE_URL"],
                         st.secrets["SUPABASE_KEY"],
                         options={"headers": {"Authorization": f"Bearer {access_token}"}}
                     )
-                    st.success("Login successful!")
+                    st.success("Logged in successfully!")
                     st.rerun()
                 else:
-                    st.error("Login failed. Invalid response from server. Check your credentials.")
+                    st.error("Login failed: Invalid response from server. Check your credentials.")
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
-
-# ====== Main App ======
 else:
-    user = st.session_state.user
-    supabase = st.session_state.supabase 
-    user_id = user.id
+    user_id = st.session_state.user.id if isinstance(st.session_state.user, dict) else st.session_state.user.id
+    supabase = st.session_state.supabase
+    st.success(f"Welcome, {st.session_state.user['email'] if isinstance(st.session_state.user, dict) else st.session_state.user.email} 👋")
 
-    st.success(f"Welcome, {user.email} 👋")
-
+    # Logout button
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
@@ -127,6 +131,7 @@ else:
         st.cache_data.clear()
         st.rerun()
 
+    # Add product form
     with st.form("add_product"):
         st.subheader("➕ Add New Product")
         product_name = st.text_input("Product Name")
@@ -152,6 +157,7 @@ else:
             except Exception as e:
                 st.error(f"Error: {e}")
 
+    # View options
     st.markdown("---")
     st.subheader("📦 Inventory")
     col1, col2, col3 = st.columns(3)
@@ -208,7 +214,8 @@ st.markdown(
     <div style="text-align: center;">
         <p><strong>🇳🇬 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
         <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
-        <p><em>Developed by Atumonye James C 2025</em></p>
+         <p><em>Built by Atumonye James © 2025</em></p>
+        <p><em>Powered by Streamlit & Supabase © 2025</em></p>
     </div>
     """, unsafe_allow_html=True
 )
