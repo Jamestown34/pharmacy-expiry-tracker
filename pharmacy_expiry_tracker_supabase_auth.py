@@ -39,10 +39,6 @@ st.markdown(
 )
 
 # Initialize Supabase client using environment variables
-supabase_url = st.secrets["SUPABASE_URL"]
-supabase_key = st.secrets["SUPABASE_KEY"]
-supabase: Client = create_client(supabase_url, supabase_key)
-
 # Function to add product to Supabase
 def add_product(name, quantity, expiry_date, user_id):
     try:
@@ -52,10 +48,13 @@ def add_product(name, quantity, expiry_date, user_id):
             "expiry_date": expiry_date,
             "user_id": user_id
         }
-        supabase.table("expiry_tracker").insert(data).execute()
+        response = supabase.table("expiry_tracker").insert(data).execute()
+        st.write("Insert Response:", response)  # Debugging line
         return True
-    except:
+    except Exception as e:
+        st.error(f"Insert failed: {e}")  # Show detailed error
         return False
+
 
 # Function to get all products for the logged-in user
 def get_all_products(user_id):
