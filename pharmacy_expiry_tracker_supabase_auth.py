@@ -4,31 +4,23 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dateutil import parser
 import io
-import os
 
-# Inject custom CSS with st.markdown for styling
+# ====== Style with CSS ======
 st.markdown(
     """
     <style>
-    /* Change main app background to a nice blue gradient */
     .stApp {
         background: linear-gradient(90deg, #001288, #0257a6, #93cbff);
         min-height: 100vh;
         color: white;
     }
-
-    /* Style headers and text color */
     .css-1v3fvcr, .css-1d391kg, .css-1emrehy, .css-18e3th9 {
         color: white;
     }
-
-    /* Style buttons */
     button[kind="primary"] {
         background-color: #001288 !important;
         color: white !important;
     }
-
-    /* Input boxes background */
     .stTextInput>div>div>input {
         background-color: #e6f0ff;
         color: black;
@@ -38,27 +30,24 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-# ========== Load from Secrets ==========
+# ====== Load Supabase secrets ======
 supabase_url = st.secrets["SUPABASE_URL"]
 supabase_key = st.secrets["SUPABASE_KEY"]
 
-# ========== Initialize Supabase Client ==========
+# ====== Initialize Supabase client once ======
 if "supabase" not in st.session_state:
     st.session_state.supabase = create_client(supabase_url, supabase_key)
+if "user" not in st.session_state:
+    st.session_state.user = None
 
 supabase = st.session_state.supabase
 
-# ========== Streamlit App ==========
+# ====== Page Title ======
 st.set_page_config(page_title="Naija Pharmacy Expiry Tracker", layout="centered")
 st.title("Naija Pharmacy Expiry Tracker")
 st.write("Track drug expiry dates for your pharmacy.")
 
-# ========== Session State ==========
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-# ========== Authentication ==========
+# ====== AUTH SECTION ======
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
     auth_choice = st.radio("Choose an option", ["Login", "Sign Up"])
@@ -68,8 +57,14 @@ if not st.session_state.user:
     if auth_choice == "Sign Up":
         if st.button("Sign Up"):
             try:
-                supabase.auth.sign_up({"email": email, "password": password})
-                st.success("Sign-up successful! Please check your email to confirm.")
+                response = supabase.auth.sign_up({
+                    "email": email,
+                    "password": password
+                })
+                if response.get("user"):
+                    st.success("Sign-up successful! Please check your email.")
+                else:
+                    st.error("Sign-up may have failed. Try another email.")
             except Exception as e:
                 st.error(f"Sign-up failed: {str(e)}")
 
@@ -81,8 +76,10 @@ if not st.session_state.user:
                     "password": password
                 })
 
-                # Save access token & authenticated client
-                access_token = user_session.session.access_token
+                access_token = user_session['session']['access_token']
+                user = user_session['user']
+
+                # Authenticated Supabase client for RLS
                 st.session_state.supabase = create_client(
                     supabase_url,
                     supabase_key,
@@ -94,16 +91,16 @@ if not st.session_state.user:
                         }
                     }
                 )
-                st.session_state.user = user_session.user
+                st.session_state.user = user
                 st.rerun()
-
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
+
 else:
-    # ========== Main App ==========
+    # ====== MAIN APP ======
     supabase = st.session_state.supabase
-    user_id = st.session_state.user.id
-    st.write(f"Welcome, {st.session_state.user.email}!")
+    user_id = st.session_state.user["id"]
+    st.write(f"Welcome, {st.session_state.user['email']}!")
 
     # Add product form
     with st.form("add_product_form"):
@@ -127,9 +124,9 @@ else:
             except Exception as e:
                 st.error(f"Failed to add product: {e}")
 
-    # Fetch product functions (same as your previous code)
-    def get_all_products(user_id):
-        res = supabase.table("expiry_tracker").select("*").eq("user_id", user_id).execute()
+    # ====== Helper Functions ======
+    def get_all_products(uid):
+        res = supabase.table("expiry_tracker").select("*").eq("user_id", uid).execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
             df["expiry_date"] = pd.to_datetime(df["expiry_date"])
@@ -144,7 +141,7 @@ else:
         df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
         return output.getvalue()
 
-    # Product filters
+    # ====== Buttons: View Products ======
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -159,7 +156,7 @@ else:
                     lambda x: "Urgent: <1 month" if x < 30 else "Warning: 1-3 months" if x < 90 else "Safe: >3 months"
                 )
                 st.dataframe(df)
-                st.download_button("Download CSV", data=generate_csv(df), file_name="nafdac_report.csv")
+                st.download_button("Download CSV", data=generate_csv(df), file_name="nafdac_expiry_report.csv")
 
     with col2:
         if st.button("All Products"):
@@ -175,9 +172,14 @@ else:
                 df = df.sort_values(by="expiry_date")
                 st.dataframe(df)
 
-    # Logout
+    # ====== Logout ======
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
         st.session_state.supabase = create_client(supabase_url, supabase_key)
         st.rerun()
+
+# ====== Footer ======
+st.write("Set up WhatsApp alerts for near-expiry drugs at: [Twilio Setup](https://www.twilio.com)")
+st.write("Data encrypted for NDPR compliance")
+
