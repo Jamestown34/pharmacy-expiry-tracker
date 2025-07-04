@@ -118,7 +118,7 @@ if not st.session_state.user:
                 user = supabase.auth.sign_in_with_password({"email": email, "password": password})
                 st.session_state.user = user.user
                 st.success("Logged in successfully!")
-                st.experimental_rerun()  # Refresh to show main app
+                st.rerun()  # Refresh to show main app
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
 else:
