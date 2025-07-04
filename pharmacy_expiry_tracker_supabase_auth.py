@@ -257,8 +257,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;">
-        <p><strong>\ud83c\uddf3\ud83c\uddf4 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
-        <p>\ud83d\udcac WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
+        <p><strong>&#127475;&#127466; NDPR Compliant | Built for Nigerian Pharmacies & Medcine Stores</strong></p>
+        <p>&#128172; WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
         <p><em>Built by Atumonye James © 2025</em></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
