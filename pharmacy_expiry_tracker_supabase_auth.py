@@ -57,8 +57,6 @@ def classify_status(days):
 @st.cache_data(ttl=300)
 def get_all_products(uid):
     try:
-        # Ensure the supabase client has the correct auth token for RLS
-        # This will use the RLS-aware client stored in session_state after login
         res = st.session_state.supabase.table("expiry_tracker").select("*").eq("user_id", uid).execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
@@ -98,40 +96,37 @@ if not st.session_state.user:
     if option == "Login":
         if st.button("Login"):
             try:
-                auth = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                if auth.user:
-                    st.session_state.user = auth.user
-                    access_token = auth.session.access_token
-                    # CORRECTED: Create RLS-aware client with proper options structure
+                auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                if hasattr(auth_response, 'user') and hasattr(auth_response, 'session'):
+                    st.session_state.user = auth_response.user
+                    access_token = auth_response.session.access_token
                     st.session_state.supabase = create_client(
                         st.secrets["SUPABASE_URL"],
                         st.secrets["SUPABASE_KEY"],
                         options={"headers": {"Authorization": f"Bearer {access_token}"}}
                     )
+                    st.success("Login successful!")
                     st.rerun()
                 else:
-                    st.error("Login failed. Check your credentials.")
+                    st.error("Login failed. Invalid response from server. Check your credentials.")
             except Exception as e:
-                st.error(f"Login failed: {e}")
+                st.error(f"Login failed: {str(e)}")
 
 # ====== Main App ======
 else:
     user = st.session_state.user
-    # Ensure 'supabase' variable always refers to the session_state client
     supabase = st.session_state.supabase 
     user_id = user.id
 
     st.success(f"Welcome, {user.email} 👋")
 
-    # Logout button
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
-        st.session_state.supabase = init_supabase() # Re-initialize with anonymous client
-        st.cache_data.clear() # Clear cached data for the previous user
+        st.session_state.supabase = init_supabase()
+        st.cache_data.clear()
         st.rerun()
 
-    # Add product form
     with st.form("add_product"):
         st.subheader("➕ Add New Product")
         product_name = st.text_input("Product Name")
@@ -150,19 +145,18 @@ else:
                 res = supabase.table("expiry_tracker").insert(data).execute()
                 if res.data:
                     st.success(f"{product_name} added!")
-                    st.cache_data.clear() # Clear cache to refresh product list
+                    st.cache_data.clear()
                     st.rerun()
                 else:
                     st.error("Failed to add product.")
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    # View options
     st.markdown("---")
     st.subheader("📦 Inventory")
     col1, col2, col3 = st.columns(3)
 
-    df = get_all_products(user_id) # This helper function now uses st.session_state.supabase
+    df = get_all_products(user_id)
 
     with col1:
         if st.button("View All"):
@@ -185,16 +179,14 @@ else:
         elif st.session_state.view == "expired":
             df = df[df["days_to_expiry"] < 0]
 
-        # Display relevant columns
         display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
-        # Custom styling for the status column
         def color_status(val):
             if val == "🔴 EXPIRED":
-                return 'background-color: #ffcccc' # Light red
+                return 'background-color: #ffcccc'
             elif val == "🟠 URGENT":
-                return 'background-color: #ffebcc' # Light orange
+                return 'background-color: #ffebcc'
             elif val == "🟡 WARNING":
-                return 'background-color: #ffffcc' # Light yellow
+                return 'background-color: #ffffcc'
             else:
                 return ''
         
@@ -216,7 +208,7 @@ st.markdown(
     <div style="text-align: center;">
         <p><strong>🇳🇬 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
         <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
-        <p><em>Powered by Streamlit & Supabase</em></p>
+        <p><em>Developed by Atumonye James C 2025</em></p>
     </div>
     """, unsafe_allow_html=True
 )
