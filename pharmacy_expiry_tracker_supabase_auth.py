@@ -30,6 +30,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+import streamlit as st
+import pandas as pd
+from supabase import create_client, Client
+from datetime import datetime, timedelta
+from dateutil import parser
+import io
+
 # ====== Load Supabase secrets ======
 supabase_url = st.secrets["SUPABASE_URL"]
 supabase_key = st.secrets["SUPABASE_KEY"]
@@ -42,8 +49,32 @@ if "user" not in st.session_state:
 
 supabase = st.session_state.supabase
 
-# ====== Page Title ======
+# ====== Page Setup ======
 st.set_page_config(page_title="Naija Pharmacy Expiry Tracker", layout="centered")
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(90deg, #001288, #0257a6, #93cbff);
+        min-height: 100vh;
+        color: white;
+    }
+    .css-1v3fvcr, .css-1d391kg, .css-1emrehy, .css-18e3th9 {
+        color: white;
+    }
+    button[kind="primary"] {
+        background-color: #001288 !important;
+        color: white !important;
+    }
+    .stTextInput>div>div>input {
+        background-color: #e6f0ff;
+        color: black;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.title("Naija Pharmacy Expiry Tracker")
 st.write("Track drug expiry dates for your pharmacy.")
 
@@ -61,7 +92,7 @@ if not st.session_state.user:
                     "email": email,
                     "password": password
                 })
-                if response.get("user"):
+                if response.user:
                     st.success("Sign-up successful! Please check your email.")
                 else:
                     st.error("Sign-up may have failed. Try another email.")
@@ -76,10 +107,9 @@ if not st.session_state.user:
                     "password": password
                 })
 
-                access_token = user_session['session']['access_token']
-                user = user_session['user']
+                access_token = user_session.session.access_token
+                user = user_session.user
 
-                # Authenticated Supabase client for RLS
                 st.session_state.supabase = create_client(
                     supabase_url,
                     supabase_key,
@@ -93,16 +123,17 @@ if not st.session_state.user:
                 )
                 st.session_state.user = user
                 st.rerun()
+
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
 
 else:
     # ====== MAIN APP ======
     supabase = st.session_state.supabase
-    user_id = st.session_state.user["id"]
-    st.write(f"Welcome, {st.session_state.user['email']}!")
+    user_id = st.session_state.user.id
+    st.write(f"Welcome, {st.session_state.user.email}!")
 
-    # Add product form
+    # ====== Add Product ======
     with st.form("add_product_form"):
         st.write("Add New Product")
         product_name = st.text_input("Product Name (e.g., Paracetamol 500mg)")
@@ -141,7 +172,7 @@ else:
         df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
         return output.getvalue()
 
-    # ====== Buttons: View Products ======
+    # ====== Product Filters ======
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -182,4 +213,3 @@ else:
 # ====== Footer ======
 st.write("Set up WhatsApp alerts for near-expiry drugs at: [Twilio Setup](https://www.twilio.com)")
 st.write("Data encrypted for NDPR compliance")
-
