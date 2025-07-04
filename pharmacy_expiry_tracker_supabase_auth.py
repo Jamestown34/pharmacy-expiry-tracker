@@ -45,13 +45,13 @@ supabase = st.session_state.supabase
 # ====== Helper Functions ======
 def classify_status(days):
     if days < 0:
-        return "\ud83d\udd34 EXPIRED"
+        return "EXPIRED"
     elif days < 30:
-        return "\ud83d\udfe0 URGENT"
+        return "URGENT"
     elif days < 90:
-        return "\ud83d\udfe1 WARNING"
+        return "WARNING"
     else:
-        return "\ud83d\udfe2 SAFE"
+        return "SAFE"
 
 @st.cache_data(ttl=300)
 def get_all_products(uid):
@@ -68,19 +68,18 @@ def get_all_products(uid):
         return pd.DataFrame()
 
 def generate_csv(df):
-    cleaned_df = df.copy()
-    cleaned_df["status"] = cleaned_df["status"].replace({
-        "\ud83d\udd34 EXPIRED": "EXPIRED",
-        "\ud83d\udfe0 URGENT": "URGENT",
-        "\ud83d\udfe1 WARNING": "WARNING",
-        "\ud83d\udfe2 SAFE": "SAFE"
-    })
     output = io.StringIO()
-    cleaned_df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
+    df["status"] = df["status"].replace({
+        "EXPIRED": "EXPIRED",
+        "URGENT": "URGENT",
+        "WARNING": "WARNING",
+        "SAFE": "SAFE"
+    })
+    df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
     return output.getvalue()
 
 # ====== Auth Section ======
-st.markdown('<h1 class="main-header">&#128138; Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
 
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
@@ -142,24 +141,24 @@ else:
     if not df.empty:
         counts = df["status"].value_counts().to_dict()
         with st.container():
-            st.subheader("\ud83d\udcca Expiry Summary")
+            st.subheader("Expiry Summary")
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("\ud83d\udd34 Expired", counts.get("\ud83d\udd34 EXPIRED", 0))
-            col2.metric("\ud83d\udfe0 Urgent", counts.get("\ud83d\udfe0 URGENT", 0))
-            col3.metric("\ud83d\udfe1 Warning", counts.get("\ud83d\udfe1 WARNING", 0))
-            col4.metric("\ud83d\udfe2 Safe", counts.get("\ud83d\udfe2 SAFE", 0))
+            col1.metric("Expired", counts.get("EXPIRED", 0))
+            col2.metric("Urgent", counts.get("URGENT", 0))
+            col3.metric("Warning", counts.get("WARNING", 0))
+            col4.metric("Safe", counts.get("SAFE", 0))
 
     if "show_inventory" not in st.session_state:
         st.session_state.show_inventory = False
 
-    if st.button("\ud83d\uddc2\ufe0f Check Inventory"):
+    if st.button("Check Inventory"):
         st.session_state.show_inventory = not st.session_state.show_inventory
 
     if st.session_state.show_inventory:
         st.markdown("---")
-        st.subheader("\ud83d\udce6 Inventory")
+        st.subheader("Inventory")
 
-        with st.expander("\ud83d\udd0d Filter Products", expanded=True):
+        with st.expander("Filter Products", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
                 search_term = st.text_input("Search by Product Name").strip().lower()
@@ -177,11 +176,11 @@ else:
             display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
 
             def color_status(val):
-                if val == "\ud83d\udd34 EXPIRED":
+                if val == "EXPIRED":
                     return 'background-color: #ffcccc'
-                elif val == "\ud83d\udfe0 URGENT":
+                elif val == "URGENT":
                     return 'background-color: #ffebcc'
-                elif val == "\ud83d\udfe1 WARNING":
+                elif val == "WARNING":
                     return 'background-color: #ffffcc'
                 else:
                     return ''
@@ -189,13 +188,13 @@ else:
             st.dataframe(display_df.style.applymap(color_status, subset=['status']))
 
             st.download_button(
-                "\ud83d\udcc5 Download CSV",
+                "Download CSV",
                 data=generate_csv(df),
                 file_name="nafdac_expiry_report.csv",
                 mime="text/csv"
             )
 
-            st.markdown("### \u270f\ufe0f Update or Delete Products")
+            st.markdown("### Update or Delete Products")
             for _, row in df.iterrows():
                 with st.expander(f"{row['product_name']} (Qty: {row['quantity']}, Status: {row['status']})"):
                     new_qty = st.number_input(
@@ -228,7 +227,7 @@ else:
             st.info("No products found. Add one to get started!")
 
     with st.form("add_product"):
-        st.subheader("\u2795 Add New Product")
+        st.subheader("Add New Product")
         product_name = st.text_input("Product Name")
         quantity = st.number_input("Quantity", min_value=1, step=1)
         expiry_date = st.date_input("Expiry Date")
@@ -257,8 +256,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;">
-        <p><strong>&#127475;&#127466; NDPR Compliant | Built for Nigerian Pharmacies & Medcine Stores</strong></p>
-        <p>&#128172; WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
+        <p><strong>NDPR Compliant | Built for Nigerian Pharmacies & Medcine Stores</strong></p>
+        <p>WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
         <p><em>Built by Atumonye James © 2025</em></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
