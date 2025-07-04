@@ -39,6 +39,11 @@ st.markdown(
 )
 
 # Initialize Supabase client using environment variables
+# ✅ Supabase Initialization
+supabase_url = st.secrets["SUPABASE_URL"]
+supabase_key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(supabase_url, supabase_key)
+
 # Function to add product to Supabase
 def add_product(name, quantity, expiry_date, user_id):
     try:
@@ -107,7 +112,7 @@ if not st.session_state.user:
         if st.button("Sign Up"):
             try:
                 user = supabase.auth.sign_up({"email": email, "password": password})
-                st.success("Sign-up successful! Please log in.")
+                st.success("Sign-up successful! Please check email for comfirmation.")
             except Exception as e:
                 st.error(f"Sign-up failed: {str(e)}")
 
