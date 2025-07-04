@@ -86,8 +86,7 @@ if not st.session_state.user:
         if st.button("Sign Up"):
             try:
                 auth_response = supabase.auth.sign_up({"email": email, "password": password})
-                st.write("Signup response:", auth_response.__dict__ if hasattr(auth_response, '__dict__') else auth_response)
-                user = auth_response['user'] if isinstance(auth_response, dict) else auth_response.user
+                user = auth_response.user
                 if user:
                     st.success("Sign-up successful! Please check your email for confirmation.")
                 else:
@@ -99,34 +98,29 @@ if not st.session_state.user:
         if st.button("Login"):
             try:
                 auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                st.write("Login response:", auth_response.__dict__ if hasattr(auth_response, '__dict__') else auth_response)
-                if isinstance(auth_response, dict):
-                    user = auth_response.get('user')
-                    session = auth_response.get('session')
-                else:
-                    user = auth_response.user
-                    session = auth_response.session
+                user = auth_response.user
+                session = auth_response.session
+
                 if user and session:
                     st.session_state.user = user
-                    access_token = session['access_token'] if isinstance(session, dict) else session.access_token
-                    st.session_state.supabase = create_client(
-                        st.secrets["SUPABASE_URL"],
-                        st.secrets["SUPABASE_KEY"],
-                        options={"headers": {"Authorization": f"Bearer {access_token}"}}
+                    # ✅ FIXED: Set session tokens correctly
+                    supabase.auth.set_session(
+                        access_token=session.access_token,
+                        refresh_token=session.refresh_token
                     )
                     st.success("Logged in successfully!")
                     st.rerun()
                 else:
-                    st.error("Login failed: Invalid response from server. Check your credentials.")
+                    st.error("Login failed: Invalid response from server.")
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
 
 else:
-    user_id = st.session_state.user['id'] if isinstance(st.session_state.user, dict) else st.session_state.user.id
+    user_id = st.session_state.user.id
     supabase = st.session_state.supabase
-    st.success(f"Welcome, {st.session_state.user['email'] if isinstance(st.session_state.user, dict) else st.session_state.user.email} 👋")
+    st.success(f"Welcome, {st.session_state.user.email} 👋")
 
-    # Logout button
+    # ====== Logout button ======
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
@@ -134,7 +128,7 @@ else:
         st.cache_data.clear()
         st.rerun()
 
-    # Add product form
+    # ====== Add product form ======
     with st.form("add_product"):
         st.subheader("➕ Add New Product")
         product_name = st.text_input("Product Name")
@@ -160,7 +154,7 @@ else:
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    # Filter & View Inventory
+    # ====== Filter & View ======
     st.markdown("---")
     st.subheader("📦 Inventory")
 
@@ -174,7 +168,7 @@ else:
         with col2:
             view_option = st.selectbox("View", ["All", "0-6 Months", "Expired Only"])
 
-    # Apply filters
+    # ====== Apply filters ======
     if not df.empty:
         if search_term:
             df = df[df["product_name"].str.lower().str.contains(search_term)]
