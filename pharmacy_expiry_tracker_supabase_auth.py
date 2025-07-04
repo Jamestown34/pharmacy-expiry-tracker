@@ -57,7 +57,9 @@ def classify_status(days):
 @st.cache_data(ttl=300)
 def get_all_products(uid):
     try:
-        res = supabase.table("expiry_tracker").select("*").eq("user_id", uid).execute()
+        # Ensure the supabase client has the correct auth token for RLS
+        # This will use the RLS-aware client stored in session_state after login
+        res = st.session_state.supabase.table("expiry_tracker").select("*").eq("user_id", uid).execute()
         df = pd.DataFrame(res.data)
         if not df.empty:
             df["expiry_date"] = pd.to_datetime(df["expiry_date"])
@@ -89,7 +91,7 @@ if not st.session_state.user:
                 if response.user:
                     st.success("Account created! Check your email to confirm.")
                 else:
-                    st.error("Sign-up failed.")
+                    st.error(f"Sign-up failed: {response.json().get('error_description', response.json().get('msg', 'Unknown error'))}")
             except Exception as e:
                 st.error(f"Sign-up failed: {e}")
 
@@ -100,17 +102,11 @@ if not st.session_state.user:
                 if auth.user:
                     st.session_state.user = auth.user
                     access_token = auth.session.access_token
-                    # Create RLS-aware client
+                    # CORRECTED: Create RLS-aware client with proper options structure
                     st.session_state.supabase = create_client(
                         st.secrets["SUPABASE_URL"],
                         st.secrets["SUPABASE_KEY"],
-                        {
-                            "global": {
-                                "headers": {
-                                    "Authorization": f"Bearer {access_token}"
-                                }
-                            }
-                        }
+                        options={"headers": {"Authorization": f"Bearer {access_token}"}}
                     )
                     st.rerun()
                 else:
@@ -121,7 +117,8 @@ if not st.session_state.user:
 # ====== Main App ======
 else:
     user = st.session_state.user
-    supabase = st.session_state.supabase
+    # Ensure 'supabase' variable always refers to the session_state client
+    supabase = st.session_state.supabase 
     user_id = user.id
 
     st.success(f"Welcome, {user.email} 👋")
@@ -130,8 +127,8 @@ else:
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
-        st.session_state.supabase = init_supabase()
-        st.cache_data.clear()
+        st.session_state.supabase = init_supabase() # Re-initialize with anonymous client
+        st.cache_data.clear() # Clear cached data for the previous user
         st.rerun()
 
     # Add product form
@@ -153,7 +150,7 @@ else:
                 res = supabase.table("expiry_tracker").insert(data).execute()
                 if res.data:
                     st.success(f"{product_name} added!")
-                    st.cache_data.clear()
+                    st.cache_data.clear() # Clear cache to refresh product list
                     st.rerun()
                 else:
                     st.error("Failed to add product.")
@@ -165,7 +162,7 @@ else:
     st.subheader("📦 Inventory")
     col1, col2, col3 = st.columns(3)
 
-    df = get_all_products(user_id)
+    df = get_all_products(user_id) # This helper function now uses st.session_state.supabase
 
     with col1:
         if st.button("View All"):
@@ -188,7 +185,21 @@ else:
         elif st.session_state.view == "expired":
             df = df[df["days_to_expiry"] < 0]
 
-        st.dataframe(df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]])
+        # Display relevant columns
+        display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
+        # Custom styling for the status column
+        def color_status(val):
+            if val == "🔴 EXPIRED":
+                return 'background-color: #ffcccc' # Light red
+            elif val == "🟠 URGENT":
+                return 'background-color: #ffebcc' # Light orange
+            elif val == "🟡 WARNING":
+                return 'background-color: #ffffcc' # Light yellow
+            else:
+                return ''
+        
+        st.dataframe(display_df.style.applymap(color_status, subset=['status']))
+
         st.download_button(
             "📥 Download CSV",
             data=generate_csv(df),
