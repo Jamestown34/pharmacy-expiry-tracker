@@ -45,13 +45,13 @@ supabase = st.session_state.supabase
 # ====== Helper Functions ======
 def classify_status(days):
     if days < 0:
-        return "🔴 EXPIRED"
+        return "\ud83d\udd34 EXPIRED"
     elif days < 30:
-        return "🔠 URGENT"
+        return "\ud83d\udfe0 URGENT"
     elif days < 90:
-        return "🔡 WARNING"
+        return "\ud83d\udfe1 WARNING"
     else:
-        return "🔷 SAFE"
+        return "\ud83d\udfe2 SAFE"
 
 @st.cache_data(ttl=300)
 def get_all_products(uid):
@@ -68,12 +68,19 @@ def get_all_products(uid):
         return pd.DataFrame()
 
 def generate_csv(df):
+    cleaned_df = df.copy()
+    cleaned_df["status"] = cleaned_df["status"].replace({
+        "\ud83d\udd34 EXPIRED": "EXPIRED",
+        "\ud83d\udfe0 URGENT": "URGENT",
+        "\ud83d\udfe1 WARNING": "WARNING",
+        "\ud83d\udfe2 SAFE": "SAFE"
+    })
     output = io.StringIO()
-    df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
+    cleaned_df[["product_name", "quantity", "expiry_date", "status"]].to_csv(output, index=False)
     return output.getvalue()
 
 # ====== Auth Section ======
-st.markdown('<h1 class="main-header">💊 Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">\ud83d\udc8a Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
 
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
@@ -90,9 +97,7 @@ if not st.session_state.user:
                 auth_response = supabase.auth.sign_up({
                     "email": email,
                     "password": password,
-                    "options": {
-                        "data": {"name": name}
-                    }
+                    "options": {"data": {"name": name}}
                 })
                 user = auth_response.user
                 if user:
@@ -124,9 +129,8 @@ if not st.session_state.user:
 else:
     user_id = st.session_state.user.id
     user_name = st.session_state.user.user_metadata.get("name", st.session_state.user.email)
-    st.success(f"Welcome, {user_name} 👋")
+    st.success(f"Welcome, {user_name} \ud83d\udc4b")
 
-    # ====== Logout button ======
     if st.button("Logout"):
         supabase.auth.sign_out()
         st.session_state.user = None
@@ -134,30 +138,28 @@ else:
         st.cache_data.clear()
         st.rerun()
 
-    # ====== Dashboard Summary ======
     df = get_all_products(user_id)
     if not df.empty:
         counts = df["status"].value_counts().to_dict()
         with st.container():
-            st.subheader("📊 Expiry Summary")
+            st.subheader("\ud83d\udcca Expiry Summary")
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("🔴 Expired", counts.get("🔴 EXPIRED", 0))
-            col2.metric("🟠 Urgent", counts.get("🟠 URGENT", 0))
-            col3.metric("🟡 Warning", counts.get("🟡 WARNING", 0))
-            col4.metric("🟢 Safe", counts.get("🟢 SAFE", 0))
+            col1.metric("\ud83d\udd34 Expired", counts.get("\ud83d\udd34 EXPIRED", 0))
+            col2.metric("\ud83d\udfe0 Urgent", counts.get("\ud83d\udfe0 URGENT", 0))
+            col3.metric("\ud83d\udfe1 Warning", counts.get("\ud83d\udfe1 WARNING", 0))
+            col4.metric("\ud83d\udfe2 Safe", counts.get("\ud83d\udfe2 SAFE", 0))
 
-    # ====== Toggle Inventory View ======
     if "show_inventory" not in st.session_state:
         st.session_state.show_inventory = False
 
-    if st.button("🗂️ Check Inventory"):
+    if st.button("\ud83d\uddc2\ufe0f Check Inventory"):
         st.session_state.show_inventory = not st.session_state.show_inventory
 
     if st.session_state.show_inventory:
         st.markdown("---")
-        st.subheader("📦 Inventory")
+        st.subheader("\ud83d\udce6 Inventory")
 
-        with st.expander("🔍 Filter Products", expanded=True):
+        with st.expander("\ud83d\udd0d Filter Products", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
                 search_term = st.text_input("Search by Product Name").strip().lower()
@@ -175,11 +177,11 @@ else:
             display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
 
             def color_status(val):
-                if val == "🔴 EXPIRED":
+                if val == "\ud83d\udd34 EXPIRED":
                     return 'background-color: #ffcccc'
-                elif val == "🟠 URGENT":
+                elif val == "\ud83d\udfe0 URGENT":
                     return 'background-color: #ffebcc'
-                elif val == "🟡 WARNING":
+                elif val == "\ud83d\udfe1 WARNING":
                     return 'background-color: #ffffcc'
                 else:
                     return ''
@@ -187,17 +189,46 @@ else:
             st.dataframe(display_df.style.applymap(color_status, subset=['status']))
 
             st.download_button(
-                "📥 Download CSV",
+                "\ud83d\udcc5 Download CSV",
                 data=generate_csv(df),
                 file_name="nafdac_expiry_report.csv",
                 mime="text/csv"
             )
+
+            st.markdown("### \u270f\ufe0f Update or Delete Products")
+            for _, row in df.iterrows():
+                with st.expander(f"{row['product_name']} (Qty: {row['quantity']}, Status: {row['status']})"):
+                    new_qty = st.number_input(
+                        f"Update quantity for {row['product_name']}",
+                        min_value=0,
+                        value=int(row['quantity']),
+                        step=1,
+                        key=f"qty_{row['id']}"
+                    )
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(f"Update Quantity", key=f"update_{row['id']}"):
+                            try:
+                                supabase.table("expiry_tracker").update({"quantity": new_qty}).eq("id", row["id"]).execute()
+                                st.success("Quantity updated.")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error updating: {e}")
+                    with col2:
+                        if st.button(f"Delete Product", key=f"delete_{row['id']}"):
+                            try:
+                                supabase.table("expiry_tracker").delete().eq("id", row["id"]).execute()
+                                st.warning("Product deleted.")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error deleting: {e}")
         else:
             st.info("No products found. Add one to get started!")
 
-    # ====== Add product form ======
     with st.form("add_product"):
-        st.subheader("➕ Add New Product")
+        st.subheader("\u2795 Add New Product")
         product_name = st.text_input("Product Name")
         quantity = st.number_input("Quantity", min_value=1, step=1)
         expiry_date = st.date_input("Expiry Date")
@@ -226,8 +257,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;">
-        <p><strong>🇳🇳 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
-        <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
+        <p><strong>\ud83c\uddf3\ud83c\uddf4 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
+        <p>\ud83d\udcac WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
         <p><em>Built by Atumonye James © 2025</em></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
