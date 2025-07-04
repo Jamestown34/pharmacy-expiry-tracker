@@ -80,7 +80,7 @@ def generate_csv(df):
     return output.getvalue()
 
 # ====== Auth Section ======
-st.markdown('<h1 class="main-header">\ud83d\udc8a Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">&#128138; Naija Pharmacy Expiry Tracker</h1>', unsafe_allow_html=True)
 
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
