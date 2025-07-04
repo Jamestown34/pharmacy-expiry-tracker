@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil import parser
 import io
 
@@ -86,7 +86,6 @@ if not st.session_state.user:
         if st.button("Sign Up"):
             try:
                 auth_response = supabase.auth.sign_up({"email": email, "password": password})
-                # Debugging: Log response structure
                 st.write("Signup response:", auth_response.__dict__ if hasattr(auth_response, '__dict__') else auth_response)
                 user = auth_response['user'] if isinstance(auth_response, dict) else auth_response.user
                 if user:
@@ -100,7 +99,6 @@ if not st.session_state.user:
         if st.button("Login"):
             try:
                 auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                # Debugging: Log response structure
                 st.write("Login response:", auth_response.__dict__ if hasattr(auth_response, '__dict__') else auth_response)
                 if isinstance(auth_response, dict):
                     user = auth_response.get('user')
@@ -122,6 +120,7 @@ if not st.session_state.user:
                     st.error("Login failed: Invalid response from server. Check your credentials.")
             except Exception as e:
                 st.error(f"Login failed: {str(e)}")
+
 else:
     user_id = st.session_state.user['id'] if isinstance(st.session_state.user, dict) else st.session_state.user.id
     supabase = st.session_state.supabase
@@ -161,36 +160,32 @@ else:
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    # View options
+    # Filter & View Inventory
     st.markdown("---")
     st.subheader("📦 Inventory")
-    col1, col2, col過程中
-3 = st.columns(3)
 
     df = get_all_products(user_id)
 
-    with col1:
-        if st.button("View All"):
-            st.session_state.view = "all"
+    with st.expander("🔍 Filter Products", expanded=True):
+        col1, col2 = st.columns(2)
 
-    with col2:
-        if st.button("0-6 Months"):
-            st.session_state.view = "6months"
+        with col1:
+            search_term = st.text_input("Search by Product Name").strip().lower()
+        with col2:
+            view_option = st.selectbox("View", ["All", "0-6 Months", "Expired Only"])
 
-    with col3:
-        if st.button("Expired Only"):
-            st.session_state.view = "expired"
-
-    if "view" not in st.session_state:
-        st.session_state.view = "all"
-
+    # Apply filters
     if not df.empty:
-        if st.session_state.view == "6months":
+        if search_term:
+            df = df[df["product_name"].str.lower().str.contains(search_term)]
+
+        if view_option == "0-6 Months":
             df = df[df["days_to_expiry"] <= 180]
-        elif st.session_state.view == "expired":
+        elif view_option == "Expired Only":
             df = df[df["days_to_expiry"] < 0]
 
         display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
+
         def color_status(val):
             if val == "🔴 EXPIRED":
                 return 'background-color: #ffcccc'
@@ -200,7 +195,7 @@ else:
                 return 'background-color: #ffffcc'
             else:
                 return ''
-        
+
         st.dataframe(display_df.style.applymap(color_status, subset=['status']))
 
         st.download_button(
@@ -217,7 +212,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;">
-        <p><strong>🇳🇲 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
+        <p><strong>🇳🇬 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
         <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
