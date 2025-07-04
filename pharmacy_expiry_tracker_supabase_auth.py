@@ -208,6 +208,7 @@ st.markdown(
     <div style="text-align: center;">
         <p><strong>🇳🇬 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
         <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
+         <p><em>Built by Atumonye James © 2025</em></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
     """, unsafe_allow_html=True
