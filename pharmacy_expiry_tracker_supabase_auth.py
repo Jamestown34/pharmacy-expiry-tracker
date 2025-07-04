@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
-from dateutil import parser
 import io
 
 # ====== Styling ======
@@ -48,11 +47,11 @@ def classify_status(days):
     if days < 0:
         return "🔴 EXPIRED"
     elif days < 30:
-        return "🟠 URGENT"
+        return "🔠 URGENT"
     elif days < 90:
-        return "🟡 WARNING"
+        return "🔡 WARNING"
     else:
-        return "🟢 SAFE"
+        return "🔷 SAFE"
 
 @st.cache_data(ttl=300)
 def get_all_products(uid):
@@ -79,13 +78,22 @@ st.markdown('<h1 class="main-header">💊 Naija Pharmacy Expiry Tracker</h1>', u
 if not st.session_state.user:
     st.subheader("Login or Sign Up")
     auth_choice = st.radio("Choose an option", ["Login", "Sign Up"])
+    name = ""
+    if auth_choice == "Sign Up":
+        name = st.text_input("Pharmacy / Business Name")
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if auth_choice == "Sign Up":
         if st.button("Sign Up"):
             try:
-                auth_response = supabase.auth.sign_up({"email": email, "password": password})
+                auth_response = supabase.auth.sign_up({
+                    "email": email,
+                    "password": password,
+                    "options": {
+                        "data": {"name": name}
+                    }
+                })
                 user = auth_response.user
                 if user:
                     st.success("Sign-up successful! Please check your email for confirmation.")
@@ -100,10 +108,8 @@ if not st.session_state.user:
                 auth_response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                 user = auth_response.user
                 session = auth_response.session
-
                 if user and session:
                     st.session_state.user = user
-                    # ✅ FIXED: Set session tokens correctly
                     supabase.auth.set_session(
                         access_token=session.access_token,
                         refresh_token=session.refresh_token
@@ -117,8 +123,8 @@ if not st.session_state.user:
 
 else:
     user_id = st.session_state.user.id
-    supabase = st.session_state.supabase
-    st.success(f"Welcome, {st.session_state.user.email} 👋")
+    user_name = st.session_state.user.user_metadata.get("name", st.session_state.user.email)
+    st.success(f"Welcome, {user_name} 👋")
 
     # ====== Logout button ======
     if st.button("Logout"):
@@ -127,6 +133,67 @@ else:
         st.session_state.supabase = init_supabase()
         st.cache_data.clear()
         st.rerun()
+
+    # ====== Dashboard Summary ======
+    df = get_all_products(user_id)
+    if not df.empty:
+        counts = df["status"].value_counts().to_dict()
+        with st.container():
+            st.subheader("📊 Expiry Summary")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("🔴 Expired", counts.get("🔴 EXPIRED", 0))
+            col2.metric("🟠 Urgent", counts.get("🟠 URGENT", 0))
+            col3.metric("🟡 Warning", counts.get("🟡 WARNING", 0))
+            col4.metric("🟢 Safe", counts.get("🟢 SAFE", 0))
+
+    # ====== Toggle Inventory View ======
+    if "show_inventory" not in st.session_state:
+        st.session_state.show_inventory = False
+
+    if st.button("🗂️ Check Inventory"):
+        st.session_state.show_inventory = not st.session_state.show_inventory
+
+    if st.session_state.show_inventory:
+        st.markdown("---")
+        st.subheader("📦 Inventory")
+
+        with st.expander("🔍 Filter Products", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                search_term = st.text_input("Search by Product Name").strip().lower()
+            with col2:
+                view_option = st.selectbox("View", ["All", "0-6 Months", "Expired Only"])
+
+        if not df.empty:
+            if search_term:
+                df = df[df["product_name"].str.lower().str.contains(search_term)]
+            if view_option == "0-6 Months":
+                df = df[df["days_to_expiry"] <= 180]
+            elif view_option == "Expired Only":
+                df = df[df["days_to_expiry"] < 0]
+
+            display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
+
+            def color_status(val):
+                if val == "🔴 EXPIRED":
+                    return 'background-color: #ffcccc'
+                elif val == "🟠 URGENT":
+                    return 'background-color: #ffebcc'
+                elif val == "🟡 WARNING":
+                    return 'background-color: #ffffcc'
+                else:
+                    return ''
+
+            st.dataframe(display_df.style.applymap(color_status, subset=['status']))
+
+            st.download_button(
+                "📥 Download CSV",
+                data=generate_csv(df),
+                file_name="nafdac_expiry_report.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("No products found. Add one to get started!")
 
     # ====== Add product form ======
     with st.form("add_product"):
@@ -154,62 +221,16 @@ else:
             except Exception as e:
                 st.error(f"Error: {e}")
 
-    # ====== Filter & View ======
-    st.markdown("---")
-    st.subheader("📦 Inventory")
-
-    df = get_all_products(user_id)
-
-    with st.expander("🔍 Filter Products", expanded=True):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            search_term = st.text_input("Search by Product Name").strip().lower()
-        with col2:
-            view_option = st.selectbox("View", ["All", "0-6 Months", "Expired Only"])
-
-    # ====== Apply filters ======
-    if not df.empty:
-        if search_term:
-            df = df[df["product_name"].str.lower().str.contains(search_term)]
-
-        if view_option == "0-6 Months":
-            df = df[df["days_to_expiry"] <= 180]
-        elif view_option == "Expired Only":
-            df = df[df["days_to_expiry"] < 0]
-
-        display_df = df[["product_name", "quantity", "expiry_date", "days_to_expiry", "status"]].copy()
-
-        def color_status(val):
-            if val == "🔴 EXPIRED":
-                return 'background-color: #ffcccc'
-            elif val == "🟠 URGENT":
-                return 'background-color: #ffebcc'
-            elif val == "🟡 WARNING":
-                return 'background-color: #ffffcc'
-            else:
-                return ''
-
-        st.dataframe(display_df.style.applymap(color_status, subset=['status']))
-
-        st.download_button(
-            "📥 Download CSV",
-            data=generate_csv(df),
-            file_name="nafdac_expiry_report.csv",
-            mime="text/csv"
-        )
-    else:
-        st.info("No products found. Add one to get started!")
-
 # ====== Footer ======
 st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center;">
-        <p><strong>🇳🇬 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
+        <p><strong>🇳🇳 NDPR Compliant | Built for Nigerian Pharmacies</strong></p>
         <p>💬 WhatsApp Alerts via <a href="https://www.twilio.com" target="_blank">Twilio Setup</a></p>
-         <p><em>Built by Atumonye James © 2025</em></p>
+        <p><em>Built by Atumonye James © 2025</em></p>
         <p><em>Powered by Streamlit & Supabase</em></p>
     </div>
     """, unsafe_allow_html=True
 )
+
