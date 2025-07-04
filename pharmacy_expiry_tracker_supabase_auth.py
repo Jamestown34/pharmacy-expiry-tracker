@@ -129,7 +129,7 @@ if not st.session_state.user:
 else:
     user_id = st.session_state.user.id
     user_name = st.session_state.user.user_metadata.get("name", st.session_state.user.email)
-   st.success(f"Welcome, {user_name}")
+    st.success(f"Welcome, {user_name}")
 
     if st.button("Logout"):
         supabase.auth.sign_out()
